@@ -1,0 +1,9 @@
+node_modules
+dist
+.env
+.env.local
+.DS_Store
+
+# Design handoff bundle — kept locally, not published.
+# reference/ holds the prototype the build and README point at.
+design_handoff_slate_whiteboard/

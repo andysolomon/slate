@@ -1,0 +1,34 @@
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+#root{height:100%}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer}
+a{color:var(--accent);text-decoration:underline}
+a:hover{color:var(--accent-dark)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+canvas:focus{outline:none}
+canvas:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+@keyframes riseIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes spin{to{transform:rotate(360deg)}}
+[data-theme]{--app:#F3F3F3;--panel:#FFFFFF;--panel-2:#FCFCFC;--line:#E5E5E5;--line-2:#C9C9C9;--text:#03234D;--text-2:#02235D;--muted:#5C5C5C;--muted-2:#8A8A8A;--muted-3:#9A9A9A;--soft:#EEF4FF;--soft-2:#CBDDFF;--canvas:#FFFFFF;--warn-bg:#FFF4E5;--warn-line:#F0C88A;--warn-text:#5C4204;--bad-bg:#FDECEA;--bad-line:#E8B4AE;--shadow:rgba(3,35,77,0.10)}
+[data-theme="dark"]{--app:#111214;--panel:#1D1E21;--panel-2:#25262A;--line:#33353B;--line-2:#4B4D55;--text:#E7E8EC;--text-2:#F4F5F8;--muted:#A8AAB2;--muted-2:#8B8D95;--muted-3:#7B7D85;--soft:#16294C;--soft-2:#20406F;--canvas:#131417;--warn-bg:#3A2C10;--warn-line:#6B5320;--warn-text:#F4D9A0;--bad-bg:#3A1C1A;--bad-line:#7A3B36;--shadow:rgba(0,0,0,0.45)}
+[data-theme="dark"] input,[data-theme="dark"] textarea{color:inherit}
+[data-theme="dark"] input::placeholder,[data-theme="dark"] textarea::placeholder{color:#7B7D85}
+
+/* Hover / focus states — one class per style-hover / style-focus pattern in the prototype. */
+.hv-accent:hover{border-color:var(--accent)!important;color:var(--accent)!important}
+.hv-accent-b:hover{border-color:var(--accent)!important}
+.hv-app:hover{background:var(--app)!important}
+.hv-app-text:hover{background:var(--app)!important;color:var(--text)!important}
+.hv-line2:hover{border-color:var(--line-2)!important}
+.hv-primary:hover{background:var(--accent-dark)!important}
+.hv-primary-b:hover{background:var(--accent-dark)!important;border-color:var(--accent-dark)!important}
+.hv-bad:hover{color:#B3261E!important;background:var(--bad-bg)!important}
+.hv-bad-b:hover{border-color:#B3261E!important;color:#B3261E!important}
+.hv-del:hover{background:#B3261E!important;color:#FFFFFF!important;border-color:#B3261E!important}
+.hv-soft-accent:hover{background:var(--soft)!important;color:var(--accent)!important}
+.hv-panel2:hover{background:var(--panel-2)!important}
+.hv-text:hover{color:var(--text)!important}
+.fc-accent:focus{border-color:var(--accent)!important}
+.scene-name:hover{border-color:var(--line)!important}
+.scene-name:focus{border-color:var(--accent)!important;background:var(--panel)!important}
