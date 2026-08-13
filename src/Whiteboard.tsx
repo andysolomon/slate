@@ -2330,7 +2330,7 @@ export class Whiteboard extends React.Component<object, WBState> {
         ? this.convertExcalidraw(data.elements)
         : this.migrate(data.elements).map((el) => Object.assign({}, el, { id: this.uid() }));
       if (!ok.length) return this.toast('All ' + total + ' elements failed validation — nothing was imported.', 'bad');
-      const name = typeof data.name === 'string' && data.name.trim() ? data.name.trim().slice(0, 60) : file.name.replace(/\.json$/i, '');
+      const name = typeof data.name === 'string' && data.name.trim() ? data.name.trim().slice(0, 60) : file.name.replace(/\.(json|excalidraw)$/i, '');
       this.newScene(ok, name).then(() => {
         this.fit();
         const dropped = total - ok.length;

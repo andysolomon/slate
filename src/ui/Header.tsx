@@ -79,7 +79,9 @@ export function Header({ v }: { v: V }) {
               <label role="menuitem" className="hv-app" style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 9px', borderRadius: 5, fontSize: 13, cursor: 'pointer' }}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 15V4" /><path d="m8 8 4-4 4 4" /><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" /></svg>
                 Import a scene
-                <input type="file" accept="application/json,.json" onChange={v.menu.import} style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }} />
+                {/* importFile also routes Excalidraw scenes and .excalidrawlib files,
+                    so they have to be selectable in the picker. */}
+                <input type="file" accept="application/json,.json,.excalidraw,.excalidrawlib" onChange={v.menu.import} style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }} />
               </label>
               <div style={{ height: 1, background: 'var(--line)', margin: '5px 4px' }} />
               <button type="button" role="menuitem" onClick={v.menu.theme} className="hv-app" style={menuItem}>
