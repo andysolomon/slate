@@ -7,7 +7,7 @@ import { CloudStore } from './cloud/s3';
 import { Header } from './ui/Header';
 import { ToolRail } from './ui/ToolRail';
 import { CanvasOverlays } from './ui/CanvasOverlays';
-import { SidePanel } from './ui/SidePanel';
+import { SidePanel, SIDEBAR_W } from './ui/SidePanel';
 import { Gallery } from './ui/Gallery';
 import { FooterBar } from './ui/FooterBar';
 import { Modals } from './ui/Modals';
@@ -27,6 +27,7 @@ export interface WBState {
   authOpen: boolean; authBusy: boolean; accountOpen: boolean; signOutAsk: boolean;
   autoSync: boolean; keepLocal: boolean; syncState: 'ok' | 'syncing';
   drawMode: 'free' | 'shape'; theme: 'light' | 'dark'; scenesOpen: boolean; menuOpen: boolean;
+  sidebarOpen: boolean;
   mermaidSrc: string;
   style: StyleDefaults;
 }
@@ -47,6 +48,10 @@ function writeStoredAuth(patch: Partial<StoredAuth>): void {
     const cur = readStoredAuth() || {};
     localStorage.setItem('slate.auth', JSON.stringify(Object.assign(cur, patch)));
   } catch { /* storage blocked */ }
+}
+
+function readSidebarOpen(): boolean {
+  try { return localStorage.getItem('slate.sidebar') !== 'closed'; } catch { return true; }
 }
 
 type Drag =
@@ -75,6 +80,7 @@ export class Whiteboard extends React.Component<object, WBState> {
     keepLocal: boot0 && boot0.keepLocal != null ? !!boot0.keepLocal : true,
     syncState: 'ok',
     drawMode: 'free', theme: 'light', scenesOpen: true, menuOpen: false,
+    sidebarOpen: readSidebarOpen(),
     mermaidSrc: 'graph TD\n  A[Start] --> B{Ready?}\n  B -->|yes| C[Ship it]\n  B -->|no| D(Fix it)\n  D --> B',
     style: { stroke: '#1e1e1e', fill: 'transparent', sw: 2, opacity: 1, fontSize: 20, dash: 'solid', rough: 0, curve: 'straight', head: 'arrow', tail: 'none' },
   };
@@ -2498,6 +2504,10 @@ export class Whiteboard extends React.Component<object, WBState> {
     const gShown = needle ? s.gallery.filter((x) => String(x.name || '').toLowerCase().indexOf(needle) >= 0) : s.gallery;
     return {
       scenesOpen: !!s.scenesOpen, scenesTurn: s.scenesOpen ? '0deg' : '-90deg', scenesLabel: s.scenesOpen ? 'Collapse scenes' : 'Expand scenes',
+      sidebarOpen: !!s.sidebarOpen,
+      sidebarW: s.sidebarOpen ? SIDEBAR_W : 0,
+      sidebarLabel: s.sidebarOpen ? 'Hide scenes and style panel' : 'Show scenes and style panel',
+      sidebarTurn: s.sidebarOpen ? '0deg' : '180deg',
       menuOpen: !!s.menuOpen, menuBg: s.menuOpen ? 'var(--soft)' : 'var(--panel)',
       signedIn: !!s.auth, signedOut: !s.auth,
       badgeLabel: s.auth ? (s.syncState === 'syncing' ? 'syncing' : 'synced') : 'local only',
@@ -2657,6 +2667,11 @@ export class Whiteboard extends React.Component<object, WBState> {
         cancelSignOut: () => this.setState({ signOutAsk: false }),
         signOut: () => this.signOut(),
         scenes: () => this.setState((p) => ({ scenesOpen: !p.scenesOpen })),
+        sidebar: () => this.setState((p) => {
+          const next = !p.sidebarOpen;
+          try { localStorage.setItem('slate.sidebar', next ? 'open' : 'closed'); } catch { /* storage blocked */ }
+          return { sidebarOpen: next };
+        }),
         libImport: (ev: React.ChangeEvent<HTMLInputElement>) => this.importLibFile(ev),
         svg: () => this.exportSvg(), png: () => this.exportPng(), json: () => this.exportJson(),
         import: (e: React.ChangeEvent<HTMLInputElement>) => this.importFile(e), help: () => this.setState((p) => ({ help: !p.help })),
@@ -2737,6 +2752,29 @@ export class Whiteboard extends React.Component<object, WBState> {
             </div>
           </main>
           <SidePanel v={v} />
+          {/* Edge handle: rides the panel's leading edge, stays reachable when closed. */}
+          <button
+            type="button"
+            onClick={v.act.sidebar}
+            aria-expanded={v.sidebarOpen}
+            aria-controls="slate-sidebar"
+            aria-label={v.sidebarLabel}
+            title={v.sidebarLabel}
+            className="hv-accent"
+            style={{
+              position: 'absolute', right: v.sidebarW, top: '50%', transform: 'translateY(-50%)',
+              zIndex: 7, width: 15, height: 46, padding: 0,
+              display: 'grid', placeItems: 'center',
+              background: 'var(--panel)', color: 'var(--muted)',
+              border: '1px solid var(--line-2)', borderRight: 'none',
+              borderRadius: '6px 0 0 6px', boxShadow: '-2px 0 6px var(--shadow)',
+              transition: 'right 0.22s ease',
+            }}
+          >
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ transform: 'rotate(' + v.sidebarTurn + ')', transition: 'transform 0.22s ease' }}>
+              <path d="M4.5 2.5 8 6l-3.5 3.5" />
+            </svg>
+          </button>
           {v.isGallery ? <Gallery v={v} /> : null}
         </div>
         <FooterBar v={v} />

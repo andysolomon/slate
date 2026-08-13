@@ -1,6 +1,9 @@
 import React from 'react';
 import type { V } from '../Whiteboard';
 
+/** Width of the scenes/style sidebar when open; collapsing animates it to 0. */
+export const SIDEBAR_W = 252;
+
 type Pick = V['strokePick'];
 
 function ColorPicker({ p, kind }: { p: Pick; kind: 'stroke' | 'fill' }) {
@@ -53,7 +56,25 @@ const segBtn = (s: { ring: string; bg: string; fg: string }): React.CSSPropertie
 
 export function SidePanel({ v }: { v: V }) {
   return (
-    <aside aria-label="Scenes and style" style={{ flex: 'none', width: 252, background: 'var(--panel)', borderLeft: '1px solid var(--line)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+    <aside
+      id="slate-sidebar"
+      aria-label="Scenes and style"
+      style={{
+        flex: 'none', width: v.sidebarW, background: 'var(--panel)',
+        borderLeftStyle: 'solid', borderLeftColor: 'var(--line)',
+        borderLeftWidth: v.sidebarOpen ? 1 : 0,
+        display: 'flex', flexDirection: 'column', minHeight: 0,
+        overflow: 'hidden', transition: 'width 0.22s ease, border-left-width 0.22s ease',
+      }}
+    >
+      {/* Fixed-width so the contents don't reflow while the panel animates.
+          Visibility (not display) keeps it out of the tab order once closed,
+          delayed so it stays on screen for the length of the slide. */}
+      <div style={{
+        width: SIDEBAR_W, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column',
+        visibility: v.sidebarOpen ? 'visible' : 'hidden',
+        transition: 'visibility 0s linear ' + (v.sidebarOpen ? '0s' : '0.22s'),
+      }}>
       <div style={{ padding: '12px 14px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 'none' }}>
         <button type="button" onClick={v.act.scenes} aria-expanded={v.scenesOpen} aria-label={v.scenesLabel} className="hv-text" style={{ display: 'flex', alignItems: 'center', gap: 6, border: 'none', background: 'transparent', padding: 0, margin: 0, color: 'var(--muted)', cursor: 'pointer' }}>
           <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ transform: 'rotate(' + v.scenesTurn + ')', transition: 'transform 0.15s ease' }}><path d="M3 4.5 6 8l3-3.5" /></svg>
@@ -219,6 +240,7 @@ export function SidePanel({ v }: { v: V }) {
             </div>
           ) : null}
         </div>
+      </div>
       </div>
     </aside>
   );
