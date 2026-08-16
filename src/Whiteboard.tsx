@@ -172,15 +172,10 @@ export class Whiteboard extends React.Component<object, WBState> {
     c.addEventListener('dragover', (e) => { e.preventDefault(); });
     c.addEventListener('drop', (e) => {
       e.preventDefault();
-      const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-      if (!f) return;
-      if (/\.excalidrawlib$/i.test(f.name)) {
-        const r = new FileReader();
-        r.onload = () => this.installLibrary(String(r.result), f.name.replace(/\.excalidrawlib$/i, '').slice(0, 60) || 'Library');
-        r.readAsText(f);
-        return;
-      }
-      this.addImage(f, this.s2w(e));
+      const files = e.dataTransfer ? [...e.dataTransfer.files] : [];
+      if (!files.length) return;
+      // read the drop point now; the event is not around after the first await
+      this.dropFiles(files, this.s2w(e));
     });
     if (!this.pasteBound) {
       this.pasteBound = true;
@@ -2310,34 +2305,81 @@ export class Whiteboard extends React.Component<object, WBState> {
     } catch { this.exporting = false; return ''; }
   }
 
+  readText(file: File): Promise<string> {
+    return new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onerror = () => rej(r.error || new Error('read failed'));
+      r.onload = () => res(String(r.result));
+      r.readAsText(file);
+    });
+  }
+
+  /** Import one file as a scene, or install it if it is a library. Resolves true
+   *  when something landed. `quiet` suppresses the per-file toast so a multi-file
+   *  drop can report a single summary instead of a burst that overwrites itself. */
+  async importSceneFile(file: File, quiet = false): Promise<boolean> {
+    const fail = (msg: string) => { if (!quiet) this.toast(msg, 'bad'); return false; };
+    if (file.size > 8 * 1024 * 1024) return fail('That file is larger than 8 MB — refusing to parse it.');
+    let text: string;
+    try { text = await this.readText(file); } catch { return fail('Could not read that file.'); }
+    let data: any;
+    try { data = JSON.parse(text); } catch { return fail('Not valid JSON — nothing was imported.'); }
+    if (data && data.type === 'excalidrawlib') {
+      await this.installLibrary(text, file.name.replace(/\.(excalidrawlib|json)$/i, '').slice(0, 60) || 'Library');
+      return true;
+    }
+    if (!data || typeof data !== 'object' || !Array.isArray(data.elements)) return fail('Missing an “elements” array — this does not look like a Slate scene.');
+    if (data.elements.length > 5000) return fail('That scene has more than 5000 elements — refusing to import.');
+    const total = data.elements.length;
+    const excal = data.type === 'excalidraw' || data.elements.some((x: any) => x && (x.type === 'rectangle' || x.type === 'freedraw' || typeof x.strokeColor === 'string'));
+    const ok = excal
+      ? this.convertExcalidraw(data.elements)
+      : this.migrate(data.elements).map((el) => Object.assign({}, el, { id: this.uid() }));
+    if (!ok.length) return fail('All ' + total + ' elements failed validation — nothing was imported.');
+    const name = typeof data.name === 'string' && data.name.trim() ? data.name.trim().slice(0, 60) : file.name.replace(/\.(json|excalidraw)$/i, '');
+    await this.newScene(ok, name);
+    this.fit();
+    if (!quiet) {
+      const dropped = total - ok.length;
+      this.toast('Imported ' + ok.length + ' element' + (ok.length === 1 ? '' : 's') + ' into “' + name + '”' + (dropped ? ' — skipped ' + dropped + ' invalid one' + (dropped === 1 ? '' : 's') + '.' : '.'));
+    }
+    return true;
+  }
+
   importFile(e: React.ChangeEvent<HTMLInputElement>) {
     const input = e.target;
     const file = input.files && input.files[0];
     if (!file) return;
-    if (file.size > 8 * 1024 * 1024) { input.value = ''; return this.toast('That file is larger than 8 MB — refusing to parse it.', 'bad'); }
-    const r = new FileReader();
-    r.onerror = () => { input.value = ''; this.toast('Could not read that file.', 'bad'); };
-    r.onload = () => {
-      input.value = '';
-      let data: any;
-      try { data = JSON.parse(String(r.result)); } catch { return this.toast('Not valid JSON — nothing was imported.', 'bad'); }
-      if (data && data.type === 'excalidrawlib') return this.installLibrary(String(r.result), file.name.replace(/\.(excalidrawlib|json)$/i, '').slice(0, 60) || 'Library');
-      if (!data || typeof data !== 'object' || !Array.isArray(data.elements)) return this.toast('Missing an “elements” array — this does not look like a Slate scene.', 'bad');
-      if (data.elements.length > 5000) return this.toast('That scene has more than 5000 elements — refusing to import.', 'bad');
-      const total = data.elements.length;
-      const excal = data.type === 'excalidraw' || data.elements.some((x: any) => x && (x.type === 'rectangle' || x.type === 'freedraw' || typeof x.strokeColor === 'string'));
-      const ok = excal
-        ? this.convertExcalidraw(data.elements)
-        : this.migrate(data.elements).map((el) => Object.assign({}, el, { id: this.uid() }));
-      if (!ok.length) return this.toast('All ' + total + ' elements failed validation — nothing was imported.', 'bad');
-      const name = typeof data.name === 'string' && data.name.trim() ? data.name.trim().slice(0, 60) : file.name.replace(/\.(json|excalidraw)$/i, '');
-      this.newScene(ok, name).then(() => {
-        this.fit();
-        const dropped = total - ok.length;
-        this.toast('Imported ' + ok.length + ' element' + (ok.length === 1 ? '' : 's') + ' into “' + name + '”' + (dropped ? ' — skipped ' + dropped + ' invalid one' + (dropped === 1 ? '' : 's') + '.' : '.'));
-      });
-    };
-    r.readAsText(file);
+    // cleared so picking the same file twice in a row still fires a change
+    this.importSceneFile(file).finally(() => { input.value = ''; });
+  }
+
+  /** Route a canvas drop. Scene files import one after another — each becomes its
+   *  own scene, so they must not race — libraries install, anything else is an
+   *  image. Mirrors what the menu's import accepts. */
+  async dropFiles(files: File[], at: Point) {
+    const isLib = (f: File) => /\.excalidrawlib$/i.test(f.name);
+    const isScene = (f: File) => /\.(excalidraw|json)$/i.test(f.name);
+    for (const f of files.filter(isLib)) {
+      try { await this.installLibrary(await this.readText(f), f.name.replace(/\.excalidrawlib$/i, '').slice(0, 60) || 'Library'); }
+      catch { this.toast('Could not read that file.', 'bad'); }
+    }
+    const scenes = files.filter((f) => !isLib(f) && isScene(f));
+    if (scenes.length) {
+      const many = scenes.length > 1;
+      let done = 0;
+      for (const f of scenes) if (await this.importSceneFile(f, many)) done++;
+      if (many) {
+        const failed = scenes.length - done;
+        this.toast(
+          done
+            ? 'Imported ' + done + ' scenes' + (failed ? ' — ' + failed + ' could not be read.' : '.')
+            : 'None of those ' + scenes.length + ' files could be imported.',
+          done ? 'ok' : 'bad'
+        );
+      }
+    }
+    for (const f of files.filter((f) => !isLib(f) && !isScene(f))) this.addImage(f, at);
   }
 
   /* ---------- sample data ---------- */
